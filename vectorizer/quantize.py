@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import cv2
 from PIL import Image, ImageOps
 
 _MAX_SAMPLE = 1_000_000  # subsample do K-Means em imagens gigantes
+DEFAULT_MAX_PIXELS = 25_000_000
 
 
 def prepare(
@@ -13,25 +16,44 @@ def prepare(
     scale: float = 1.0,
     denoise: int = 1,
     alpha_bg: tuple[int, int, int] = (255, 255, 255),
+    max_pixels: int = DEFAULT_MAX_PIXELS,
 ) -> np.ndarray:
+    if max_pixels <= 0:
+        raise ValueError("max_pixels deve ser > 0")
+    if not math.isfinite(scale) or scale <= 0:
+        raise ValueError("scale deve ser um número finito > 0")
+
     with Image.open(path) as im:
+        source_w, source_h = im.size
+        source_pixels = source_w * source_h
+        if source_pixels > max_pixels:
+            raise ValueError(
+                f"imagem excede o limite de {max_pixels:,} pixels: "
+                f"{source_w:,}x{source_h:,}"
+            )
         im = ImageOps.exif_transpose(im)
+        source_w, source_h = im.size
+
+        target_w, target_h = source_w, source_h
+        if scale != 1.0:
+            target_w = max(1, int(round(source_w * scale)))
+            target_h = max(1, int(round(source_h * scale)))
+        if max_size and max(target_w, target_h) > max_size:
+            k = max_size / max(target_w, target_h)
+            target_w = max(1, int(round(target_w * k)))
+            target_h = max(1, int(round(target_h * k)))
+
+        if (target_w, target_h) != (source_w, source_h):
+            im.draft("RGBA", (target_w, target_h))
         im = im.convert("RGBA")
         alpha = im.getchannel("A")
 
-    if alpha.getextrema()[0] < 255:
-        bg = Image.new("RGBA", im.size, (*alpha_bg, 255))
-        im = Image.alpha_composite(bg, im)
-    im = im.convert("RGB")
-
-    if scale != 1.0 or (max_size and max(im.size) > max_size):
-        source_w, source_h = im.size
-        w = max(1, int(round(source_w * scale)))
-        h = max(1, int(round(source_h * scale)))
-        if max_size and max(w, h) > max_size:
-            k = max_size / max(w, h)
-            w, h = max(1, int(round(w * k))), max(1, int(round(h * k)))
-        im = im.resize((w, h), Image.LANCZOS)
+        if alpha.getextrema()[0] < 255:
+            bg = Image.new("RGBA", im.size, (*alpha_bg, 255))
+            im = Image.alpha_composite(bg, im)
+        im = im.convert("RGB")
+        if im.size != (target_w, target_h):
+            im = im.resize((target_w, target_h), Image.LANCZOS)
 
     img = np.asarray(im).astype(np.uint8)
     if denoise >= 1:

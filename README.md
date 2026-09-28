@@ -41,6 +41,7 @@ logo-vectorizer logo.png -o logo.svg
 | `--min-area` | 0.0003 | Área mínima de um blob (remove sujeira) |
 | `--trim` | off | Recorta margens uniformes |
 | `--max-size` | 0 | Limita o maior lado em px |
+| `--max-pixels` | 25000000 | Recusa imagens com mais pixels na origem |
 | `--seed` | 12345 | Semente do K-Means |
 
 ## Estrutura

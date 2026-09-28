@@ -48,6 +48,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Mantem a cor de fundo como <rect> de base (em vez de transparente)",
     )
     p.add_argument("--max-size", type=int, default=0, help="Limita o maior lado em px (0=original)")
+    p.add_argument(
+        "--max-pixels",
+        type=int,
+        default=25_000_000,
+        help="Limita os pixels da imagem de origem antes da decodificacao completa",
+    )
     p.add_argument("--scale", type=float, default=1.0, help="Upscale Lanczos antes do traco (ex.: 2)")
     p.add_argument("--denoise", type=int, choices=[0, 1, 2], default=1, help="Nivel de denoise")
     p.add_argument(
@@ -106,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             alpha_bg=args.alpha_bg,
             transparent=not args.no_transparent,
             max_size=args.max_size,
+            max_pixels=args.max_pixels,
             scale=args.scale,
             denoise=args.denoise,
             tolerance=args.tolerance,

@@ -9,7 +9,14 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .quantize import parse_color, parse_palette, prepare, quantize, trim_borders
+from .quantize import (
+    DEFAULT_MAX_PIXELS,
+    parse_color,
+    parse_palette,
+    prepare,
+    quantize,
+    trim_borders,
+)
 from .svg import build_svg, count_path_data
 from .trace import Region, trace_mask
 
@@ -22,6 +29,7 @@ class VectorizeOptions:
     alpha_bg: str = "#FFFFFF"             # fundo para compor alpha parcial antes da quantizacao
     transparent: bool = True              # remove o fundo do SVG (alpha real)
     max_size: int = 0                     # limita o maior lado em px (0 = original)
+    max_pixels: int = DEFAULT_MAX_PIXELS  # limite de pixels da imagem de origem
     scale: float = 1.0                    # upscale Lanczos antes do traço
     denoise: int = 1                      # 0 | 1 | 2
     tolerance: float = 0.6                # erro máx. (px) do Bézier vs imagem
@@ -39,6 +47,19 @@ class VectorizeOptions:
             raise ValueError("colors deve estar entre 1 e 16")
         if self.max_size < 0:
             raise ValueError("max_size deve ser >= 0")
+        if self.max_pixels <= 0:
+            raise ValueError("max_pixels deve ser > 0")
+        float_options = (
+            ("scale", self.scale),
+            ("tolerance", self.tolerance),
+            ("corner_angle", self.corner_angle),
+            ("min_area", self.min_area),
+            ("merge", self.merge),
+            ("smooth", self.smooth),
+        )
+        for name, value in float_options:
+            if not np.isfinite(value):
+                raise ValueError(f"{name} deve ser um número finito")
         if self.scale <= 0:
             raise ValueError("scale deve ser > 0")
         if self.denoise not in (0, 1, 2):
@@ -90,6 +111,7 @@ def vectorize(
     img = prepare(
         input_path,
         max_size=o.max_size,
+        max_pixels=o.max_pixels,
         scale=o.scale,
         denoise=o.denoise,
         alpha_bg=alpha_bg,
