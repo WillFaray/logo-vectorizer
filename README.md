@@ -28,6 +28,7 @@ python main.py logo.png --no-transparent            # mantém o fundo como rect
 | `--colors N` | 6 | Nº de cores (K-Means) |
 | `--palette` | — | Cores fixas `#RRGGBB,...` |
 | `--bg` | `auto` | `auto` \| `none` \| `#RRGGBB` \| nome CSS |
+| `--alpha-bg` | `#FFFFFF` | Cor usada para compor alpha parcial antes da quantização |
 | `--no-transparent` | off | Fundo vira `<rect>` em vez de transparente |
 | `--scale N` | 1 | Upscale antes do traço (imagens pequenas) |
 | `--denoise N` | 1 | 0=off, 1=mediana, 2=mediana+bilateral |
