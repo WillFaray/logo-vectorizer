@@ -284,7 +284,7 @@ def quantize(
         centers = np.asarray(palette, dtype=np.float32)
         labels = _assign_to_centers(data, centers)
     else:
-        k = max(2, min(colors, 16))
+        k = max(1, min(colors, 16))
         labels = _kmeans_labels(data, k, seed)
         centroids = np.zeros((k, 3), dtype=np.float64)
         counts = np.zeros(k)

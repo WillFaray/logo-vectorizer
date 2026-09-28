@@ -9,6 +9,8 @@ import sys
 
 from .pipeline import VectorizeOptions, vectorize
 
+_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -79,13 +81,17 @@ def build_parser() -> argparse.ArgumentParser:
 def _collect_inputs(arg_value: str, batch: bool) -> list[str]:
     if not batch:
         return [arg_value]
+
+    def is_image_file(path: str) -> bool:
+        return os.path.isfile(path) and os.path.splitext(path)[1].lower() in _IMAGE_EXTENSIONS
+
     if os.path.isdir(arg_value):
-        exts = ("*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.tif", "*.tiff")
-        files: list[str] = []
-        for e in exts:
-            files.extend(glob.glob(os.path.join(arg_value, e)))
-        return sorted(files)
-    return sorted(glob.glob(arg_value))
+        return sorted(
+            entry.path
+            for entry in os.scandir(arg_value)
+            if entry.is_file() and os.path.splitext(entry.name)[1].lower() in _IMAGE_EXTENSIONS
+        )
+    return sorted(path for path in glob.glob(arg_value) if is_image_file(path))
 
 
 def _out_name(in_path: str, out_dir: str | None, explicit: str | None) -> str:
@@ -93,8 +99,6 @@ def _out_name(in_path: str, out_dir: str | None, explicit: str | None) -> str:
         return explicit
     base = os.path.splitext(os.path.basename(in_path))[0]
     folder = out_dir or os.path.dirname(os.path.abspath(in_path))
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
     return os.path.join(folder, f"{base}_vector.svg")
 
 
@@ -131,6 +135,13 @@ def main(argv: list[str] | None = None) -> int:
     if not inputs:
         print(f"[erro] nenhuma imagem encontrada em: {args.input}", file=sys.stderr)
         return 2
+
+    if args.batch:
+        try:
+            os.makedirs(args.out_dir, exist_ok=True)
+        except OSError as exc:
+            print(f"[erro] nao foi possivel criar --out-dir {args.out_dir!r}: {exc}", file=sys.stderr)
+            return 2
 
     total_ok = 0
     failures: list[tuple[str, str]] = []

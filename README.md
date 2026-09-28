@@ -29,7 +29,7 @@ logo-vectorizer logo.png -o logo.svg
 
 | Opção | Default | Descrição |
 |---|---|---|
-| `--colors N` | 6 | Nº de cores (K-Means) |
+| `--colors N` | 6 | Nº de cores (K-Means; `1` para saída monocromática) |
 | `--palette` | — | Cores fixas `#RRGGBB,...` |
 | `--bg` | `auto` | `auto` \| `none` \| `#RRGGBB` \| nome CSS |
 | `--alpha-bg` | `#FFFFFF` | Cor usada para compor alpha parcial antes da quantização |

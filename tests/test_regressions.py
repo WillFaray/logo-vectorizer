@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from vectorizer.cli import main
+from vectorizer.cli import _collect_inputs, main
 from vectorizer.pipeline import VectorizeOptions, vectorize
-from vectorizer.quantize import prepare, trim_borders
+from vectorizer.quantize import prepare, quantize, trim_borders
 
 
 def test_trim_preserves_content_at_right_and_bottom_edges() -> None:
@@ -25,6 +25,40 @@ def test_invalid_batch_output_is_rejected() -> None:
         main(["*.png", "--batch", "--output", "result.svg"])
 
     assert error.value.code == 2
+
+
+def test_quantize_supports_one_color() -> None:
+    image = np.array(
+        [
+            [[20, 30, 40], [200, 210, 220]],
+            [[20, 30, 40], [200, 210, 220]],
+        ],
+        dtype=np.uint8,
+    )
+
+    labels, colors, background = quantize(image, colors=1, bg="none", merge_dist=0)
+
+    assert labels.shape == image.shape[:2]
+    assert len(colors) == 1
+    assert background is None
+
+
+def test_batch_collects_only_supported_files_case_insensitively(tmp_path) -> None:
+    Image.new("RGB", (4, 4), "white").save(tmp_path / "LOGO.PNG")
+    (tmp_path / "notes.txt").write_text("not an image", encoding="utf-8")
+    (tmp_path / "nested.png").mkdir()
+
+    assert _collect_inputs(str(tmp_path), batch=True) == [str(tmp_path / "LOGO.PNG")]
+
+
+def test_batch_out_dir_failure_returns_controlled_error(tmp_path) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    Image.new("RGB", (4, 4), "white").save(input_dir / "logo.png")
+    output_blocker = tmp_path / "not-a-directory"
+    output_blocker.write_text("blocked", encoding="utf-8")
+
+    assert main([str(input_dir), "--batch", "--out-dir", str(output_blocker), "--quiet"]) == 2
 
 
 def test_vectorize_writes_svg_to_requested_path_atomically(tmp_path) -> None:
