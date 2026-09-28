@@ -38,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fundo: auto | none | '#FFFFFF' | nome CSS (ex.: white, black)",
     )
     p.add_argument(
+        "--alpha-bg",
+        default="#FFFFFF",
+        help="Cor de composicao para alpha parcial (hex ou nome CSS)",
+    )
+    p.add_argument(
         "--no-transparent",
         action="store_true",
         help="Mantem a cor de fundo como <rect> de base (em vez de transparente)",
@@ -98,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
             colors=args.colors,
             palette=args.palette,
             bg=args.bg,
+            alpha_bg=args.alpha_bg,
             transparent=not args.no_transparent,
             max_size=args.max_size,
             scale=args.scale,

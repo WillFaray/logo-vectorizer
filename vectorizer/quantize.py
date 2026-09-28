@@ -12,6 +12,7 @@ def prepare(
     max_size: int = 0,
     scale: float = 1.0,
     denoise: int = 1,
+    alpha_bg: tuple[int, int, int] = (255, 255, 255),
 ) -> np.ndarray:
     with Image.open(path) as im:
         im = ImageOps.exif_transpose(im)
@@ -19,7 +20,7 @@ def prepare(
         alpha = im.getchannel("A")
 
     if alpha.getextrema()[0] < 255:
-        bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
+        bg = Image.new("RGBA", im.size, (*alpha_bg, 255))
         im = Image.alpha_composite(bg, im)
     im = im.convert("RGB")
 
@@ -47,10 +48,31 @@ def _hex_to_rgb(value: str) -> tuple[int, int, int]:
     return (int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16))
 
 
+def parse_color(value: str) -> tuple[int, int, int]:
+    try:
+        color = _hex_to_rgb(value)
+    except ValueError:
+        from PIL import ImageColor
+
+        try:
+            parsed = ImageColor.getrgb(value)
+        except ValueError as exc:
+            raise ValueError(f"Cor invalida: {value!r}") from exc
+        if len(parsed) != 3:
+            raise ValueError(f"Cor com alpha nao suportada: {value!r}")
+        color = tuple(int(component) for component in parsed)
+    return color
+
+
 def parse_palette(text: str | None) -> list[tuple[int, int, int]] | None:
     if not text:
         return None
-    return [_hex_to_rgb(p) for p in text.split(",") if p.strip()]
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if not parts:
+        raise ValueError("Paleta vazia")
+    if len(parts) > 16:
+        raise ValueError("A paleta deve ter no maximo 16 cores")
+    return [parse_color(p) for p in parts]
 
 
 def _kmeans_lloyd(data: np.ndarray, k: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
@@ -149,6 +171,7 @@ def merge_centers(
     centers = np.asarray(centers, dtype=np.float64)
     k = centers.shape[0]
     members: list[list[int]] = [[i] for i in range(k)]
+    representatives = [center.copy() for center in centers]
 
     changed = True
     while changed and len(members) > 1:
@@ -157,28 +180,28 @@ def merge_centers(
         best_pair = (-1, -1)
         best_d = merge_dist
         for i in range(m):
-            ci = centers[members[i][0]]
+            ci = representatives[i]
             for j in range(i + 1, m):
-                d = float(np.linalg.norm(ci - centers[members[j][0]]))
+                d = float(np.linalg.norm(ci - representatives[j]))
                 if d < best_d:
                     best_d, best_pair = d, (i, j)
         if best_pair != (-1, -1):
             a, b = best_pair
             members[a] += members[b]
+            representatives[a] = np.mean(centers[members[a]], axis=0)
             members.pop(b)
+            representatives.pop(b)
             changed = True
 
     remap: dict[int, int] = {}
-    final_centers: list[np.ndarray] = []
     for new_id, group in enumerate(members):
-        final_centers.append(np.mean(centers[group], axis=0))
         for old in group:
             remap[old] = new_id
 
     new_labels = np.empty(labels.shape, dtype=np.int32)
     for old, new in remap.items():
         new_labels[labels == old] = new
-    return new_labels, np.asarray(final_centers)
+    return new_labels, np.asarray(representatives)
 
 
 def detect_background(
@@ -202,12 +225,7 @@ def detect_background(
             return int(top)
         return None
 
-    try:
-        target = _hex_to_rgb(bg)
-    except ValueError:
-        from PIL import ImageColor
-
-        target = ImageColor.getrgb(bg)
+    target = parse_color(bg)
     dist = np.linalg.norm(centers - np.asarray(target, dtype=np.float64), axis=1)
     if dist.min() > 120.0:
         return None
@@ -236,7 +254,11 @@ def quantize(
     h, w = img.shape[:2]
     data = img.reshape(-1, 3).astype(np.float32)
 
-    if palette:
+    if palette is not None:
+        if not 1 <= len(palette) <= 16:
+            raise ValueError("A paleta deve ter entre 1 e 16 cores")
+        if any(len(color) != 3 or any(not 0 <= component <= 255 for component in color) for color in palette):
+            raise ValueError("Cada cor da paleta deve conter 3 valores entre 0 e 255")
         centers = np.asarray(palette, dtype=np.float32)
         labels = _assign_to_centers(data, centers)
     else:

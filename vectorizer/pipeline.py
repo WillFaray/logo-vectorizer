@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .quantize import parse_palette, prepare, quantize, trim_borders
+from .quantize import parse_color, parse_palette, prepare, quantize, trim_borders
 from .svg import build_svg, count_path_data
 from .trace import Region, trace_mask
 
@@ -18,6 +18,7 @@ class VectorizeOptions:
     colors: int = 6                       # nº de cores alvo (auto-quantização K-Means)
     palette: str | None = None            # paleta forçada "#RRGGBB,#RRGGBB,..."
     bg: str = "auto"                      # auto | none | #RRGGBB | nome CSS
+    alpha_bg: str = "#FFFFFF"             # fundo para compor alpha parcial antes da quantizacao
     transparent: bool = True              # remove o fundo do SVG (alpha real)
     max_size: int = 0                     # limita o maior lado em px (0 = original)
     scale: float = 1.0                    # upscale Lanczos antes do traço
@@ -55,6 +56,11 @@ class VectorizeOptions:
             raise ValueError("min_gap deve ser >= 0")
         if self.decimals < 0:
             raise ValueError("decimals deve ser >= 0")
+        parse_color(self.alpha_bg)
+        if self.bg not in ("auto", "none"):
+            parse_color(self.bg)
+        if self.palette is not None:
+            parse_palette(self.palette)
 
 
 @dataclass
@@ -79,7 +85,14 @@ def vectorize(
     t0 = time.perf_counter()
     o = opts or VectorizeOptions()
 
-    img = prepare(input_path, max_size=o.max_size, scale=o.scale, denoise=o.denoise)
+    alpha_bg = parse_color(o.alpha_bg)
+    img = prepare(
+        input_path,
+        max_size=o.max_size,
+        scale=o.scale,
+        denoise=o.denoise,
+        alpha_bg=alpha_bg,
+    )
     if o.trim:
         img = trim_borders(img)
     h, w = img.shape[:2]
