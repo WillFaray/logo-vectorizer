@@ -8,6 +8,8 @@ entrada + mesma seed = mesma saída).
 
 ```powershell
 pip install -r requirements.txt
+# ou, para instalar a CLI como comando:
+pip install .
 ```
 
 ## Uso
@@ -19,6 +21,8 @@ python main.py logo.jpg --scale 2 --denoise 2       # imagem pequena ou JPEG com
 python main.py logo.png --trim                      # recorta margens do fundo
 python main.py logo.png --palette '#1F4E9C,#F5B301' # paleta fixa
 python main.py logo.png --no-transparent            # mantém o fundo como rect
+# depois de `pip install .`:
+logo-vectorizer logo.png -o logo.svg
 ```
 
 ## Opções
@@ -54,3 +58,6 @@ tests/             → gerador de amostras + validador
 
 Limitações: fotos com gradientes não viram logos perfeitos (a paleta é reduzida —
 aumente `--colors`); texto muito pequeno depende da resolução de origem (`--scale 2`).
+
+Em modo batch, use `--out-dir` para definir a pasta de saída. O processo retorna
+código `1` se uma ou mais imagens falharem e lista os arquivos problemáticos ao final.
