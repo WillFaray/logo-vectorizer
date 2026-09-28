@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import time
 from dataclasses import dataclass, field
 
@@ -150,7 +151,22 @@ def vectorize(
     if output_svg:
         parent = os.path.dirname(os.path.abspath(output_svg))
         os.makedirs(parent, exist_ok=True)
-        with open(output_svg, "w", encoding="utf-8") as f:
-            f.write(svg)
+        fd, temp_path = tempfile.mkstemp(
+            prefix=f".{os.path.basename(output_svg)}.",
+            suffix=".tmp",
+            dir=parent,
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                f.write(svg)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, output_svg)
+        except Exception:
+            try:
+                os.unlink(temp_path)
+            except FileNotFoundError:
+                pass
+            raise
 
     return svg, stats
