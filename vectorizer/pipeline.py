@@ -32,6 +32,30 @@ class VectorizeOptions:
     trim: bool = False                    # recorta margens uniformes de fundo
     decimals: int = 3                     # casas decimais no SVG
 
+    def __post_init__(self) -> None:
+        if not 1 <= self.colors <= 16:
+            raise ValueError("colors deve estar entre 1 e 16")
+        if self.max_size < 0:
+            raise ValueError("max_size deve ser >= 0")
+        if self.scale <= 0:
+            raise ValueError("scale deve ser > 0")
+        if self.denoise not in (0, 1, 2):
+            raise ValueError("denoise deve ser 0, 1 ou 2")
+        if self.tolerance < 0:
+            raise ValueError("tolerance deve ser >= 0")
+        if not 0 <= self.corner_angle <= 180:
+            raise ValueError("corner_angle deve estar entre 0 e 180")
+        if not 0 <= self.min_area <= 1:
+            raise ValueError("min_area deve estar entre 0 e 1")
+        if self.merge < 0:
+            raise ValueError("merge deve ser >= 0")
+        if self.smooth < 0:
+            raise ValueError("smooth deve ser >= 0")
+        if self.min_gap < 0:
+            raise ValueError("min_gap deve ser >= 0")
+        if self.decimals < 0:
+            raise ValueError("decimals deve ser >= 0")
+
 
 @dataclass
 class VectorizeStats:

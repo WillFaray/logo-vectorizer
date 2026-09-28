@@ -24,11 +24,12 @@ def prepare(
     im = im.convert("RGB")
 
     if scale != 1.0 or (max_size and max(im.size) > max_size):
-        w, h = im.size
+        source_w, source_h = im.size
+        w = max(1, int(round(source_w * scale)))
+        h = max(1, int(round(source_h * scale)))
         if max_size and max(w, h) > max_size:
             k = max_size / max(w, h)
-            w, h = int(round(w * k)), int(round(h * k))
-        w, h = int(round(w * scale)), int(round(h * scale))
+            w, h = max(1, int(round(w * k))), max(1, int(round(h * k)))
         im = im.resize((w, h), Image.LANCZOS)
 
     img = np.asarray(im).astype(np.uint8)
@@ -100,8 +101,15 @@ def _kmeans_labels(data: np.ndarray, k: int, seed: int) -> np.ndarray:
 
 
 def _assign_to_centers(data: np.ndarray, centers: np.ndarray) -> np.ndarray:
-    dist = np.linalg.norm(data[:, None, :] - centers[None, :, :], axis=2)
-    return dist.argmin(axis=1)
+    labels = np.empty(data.shape[0], dtype=np.int32)
+    centers = np.asarray(centers, dtype=np.float32)
+    block_size = 131_072
+    for start in range(0, data.shape[0], block_size):
+        end = min(start + block_size, data.shape[0])
+        block = data[start:end]
+        distances = ((block[:, None, :] - centers[None, :, :]) ** 2).sum(axis=2)
+        labels[start:end] = distances.argmin(axis=1)
+    return labels
 
 
 def trim_borders(
@@ -122,9 +130,9 @@ def trim_borders(
     any_row = bool((row_bg < 1.0).any())
 
     lo_w = int(np.argmax(col_bg < 1.0)) if any_col else 0
-    hi_w = int(w - 1 - np.argmax(col_bg[::-1] < 1.0)) if any_col else w
+    hi_w = int(w - np.argmax(col_bg[::-1] < 1.0)) if any_col else w
     lo_h = int(np.argmax(row_bg < 1.0)) if any_row else 0
-    hi_h = int(h - 1 - np.argmax(row_bg[::-1] < 1.0)) if any_row else h
+    hi_h = int(h - np.argmax(row_bg[::-1] < 1.0)) if any_row else h
 
     cut_w = int(w * max_trim)
     cut_h = int(h * max_trim)
@@ -250,7 +258,9 @@ def quantize(
     counts = np.bincount(flat, minlength=len(centers)).astype(np.float64)
     order = np.argsort(-counts)
     remap = {old: new for new, old in enumerate(order)}
-    labels = np.array([remap[int(l)] for l in flat], dtype=np.int32)
+    remap_array = np.empty(len(order), dtype=np.int32)
+    remap_array[order] = np.arange(len(order), dtype=np.int32)
+    labels = remap_array[flat]
     centers = centers[order]
     if bg_label is not None:
         bg_label = int(remap[bg_label])

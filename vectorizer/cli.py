@@ -88,15 +88,12 @@ def _out_name(in_path: str, out_dir: str | None, explicit: str | None) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    inputs = _collect_inputs(args.input, args.batch)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.batch and args.output:
+        parser.error("--output não pode ser usado junto com --batch; use --out-dir")
 
-    if not inputs:
-        print(f"[erro] nenhuma imagem encontrada em: {args.input}", file=sys.stderr)
-        return 2
-
-    total_ok = 0
-    for i, in_path in enumerate(inputs, 1):
+    try:
         opts = VectorizeOptions(
             colors=args.colors,
             palette=args.palette,
@@ -113,6 +110,17 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
             trim=args.trim,
         )
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    inputs = _collect_inputs(args.input, args.batch)
+
+    if not inputs:
+        print(f"[erro] nenhuma imagem encontrada em: {args.input}", file=sys.stderr)
+        return 2
+
+    total_ok = 0
+    for i, in_path in enumerate(inputs, 1):
         out = _out_name(in_path, args.out_dir if args.batch else None, None if args.batch else args.output)
         try:
             _, stats = vectorize(in_path, out, opts)
