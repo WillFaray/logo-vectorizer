@@ -126,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     total_ok = 0
+    failures: list[tuple[str, str]] = []
     for i, in_path in enumerate(inputs, 1):
         out = _out_name(in_path, args.out_dir if args.batch else None, None if args.batch else args.output)
         try:
@@ -141,10 +142,16 @@ def main(argv: list[str] | None = None) -> int:
                     f"{notes}"
                 )
         except Exception as exc:
-            print(f"[{i}/{len(inputs)}] {os.path.basename(in_path)} -> ERRO: {exc}", file=sys.stderr)
+            detail = f"{type(exc).__name__}: {exc}"
+            failures.append((in_path, detail))
+            print(f"[{i}/{len(inputs)}] {os.path.basename(in_path)} -> ERRO: {detail}", file=sys.stderr)
 
     if not args.quiet:
         print(f"\nConcluido: {total_ok}/{len(inputs)} imagens vetorizadas.")
+        if failures:
+            print("Falhas:")
+            for in_path, detail in failures:
+                print(f"  - {in_path}: {detail}")
     return 0 if total_ok == len(inputs) else 1
 
 
